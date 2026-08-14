@@ -21,63 +21,107 @@
     }
 
     body {
+
       margin: 0;
+
       padding: 15px;
+
       background: #111;
+
       color: white;
+
       font-family: Arial, sans-serif;
+
       text-align: center;
+
     }
 
     h1 {
+
       font-size: 24px;
+
       margin: 10px 0 5px;
+
     }
 
     .subtitle {
+
       color: #bbb;
+
       font-size: 14px;
+
       margin-bottom: 20px;
+
     }
 
     #reader {
+
       width: 100%;
+
       max-width: 600px;
+
       margin: auto;
+
       background: black;
+
       border-radius: 12px;
+
       overflow: hidden;
+
     }
 
     #message {
+
       max-width: 600px;
+
       margin: 15px auto;
+
       padding: 14px;
+
       border-radius: 8px;
+
       background: #222;
+
     }
 
     .success {
+
       background: #164d25 !important;
+
       color: #9cffad;
+
     }
 
     .error {
+
       background: #5a1616 !important;
+
       color: #ffb3b3;
+
     }
 
     button {
+
       width: 100%;
+
       max-width: 600px;
+
       padding: 16px;
+
       margin-top: 15px;
+
       border: none;
+
       border-radius: 9px;
+
       background: white;
+
       color: black;
+
       font-size: 17px;
+
       font-weight: bold;
+
     }
 
   </style>
@@ -87,114 +131,175 @@
 
 <body>
 
-  <h1>📷 Library QR Scanner</h1>
 
-  <div class="subtitle">
-    Scan the student's QR code
-  </div>
+<h1>
+  📷 Library QR Scanner
+</h1>
 
-  <div id="reader"></div>
 
-  <div id="message">
-    Starting camera...
-  </div>
+<div class="subtitle">
+  Scan the student's QR code
+</div>
 
-  <button
-    id="backButton"
-    onclick="goBack()"
-    style="display:none;"
-  >
-    ← RETURN TO LIBRARY FORM
-  </button>
+
+<div id="reader"></div>
+
+
+<div id="message">
+  Starting camera...
+</div>
+
+
+<button
+  id="backButton"
+  onclick="goBack()"
+  style="display:none;"
+>
+  ← RETURN TO LIBRARY FORM
+</button>
 
 
 <script>
 
-  const params =
-    new URLSearchParams(
-      window.location.search
+
+const params =
+  new URLSearchParams(
+    window.location.search
+  );
+
+
+const returnUrl =
+  params.get('returnUrl');
+
+
+let scanner = null;
+
+let scanned = false;
+
+
+/* =====================================
+   MESSAGE
+   ===================================== */
+
+function showMessage(
+  text,
+  type = ''
+) {
+
+  const message =
+    document.getElementById(
+      'message'
     );
 
-  const returnUrl =
-    params.get('returnUrl');
+  message.innerHTML =
+    text;
 
-  let scanner = null;
+  message.className =
+    type;
 
-  let scanned = false;
+}
 
 
-  function showMessage(
-    text,
-    type = ''
-  ) {
+/* =====================================
+   START CAMERA
+   ===================================== */
 
-    const message =
-      document.getElementById(
-        'message'
+async function startCamera() {
+
+  try {
+
+    scanner =
+      new Html5Qrcode(
+        'reader'
       );
 
-    message.innerHTML = text;
 
-    message.className = type;
+    /*
+     * FIRST METHOD
+     *
+     * Tell Chrome directly:
+     *
+     * "Use the rear camera."
+     *
+     * We do NOT request a specific
+     * camera device ID.
+     */
+
+    await scanner.start(
+
+      {
+        facingMode: {
+          ideal: 'environment'
+        }
+      },
+
+      {
+        fps: 10,
+
+        qrbox: {
+          width: 250,
+          height: 250
+        },
+
+        aspectRatio: 1.0
+
+      },
+
+      function(decodedText) {
+
+        if (scanned) {
+
+          return;
+
+        }
+
+        scanned = true;
+
+        handleScan(
+          decodedText
+        );
+
+      },
+
+      function(errorMessage) {
+
+        /*
+         * Normal QR scanning errors
+         * are ignored.
+         */
+
+      }
+
+    );
+
+
+    showMessage(
+      'Camera ready. Scan the student QR code.'
+    );
 
   }
 
 
-  async function startCamera() {
+  catch (firstError) {
+
+    console.log(
+      'First camera attempt failed:',
+      firstError
+    );
+
+
+    /*
+     * SECOND METHOD
+     *
+     * Try the simpler environment
+     * camera request.
+     */
 
     try {
 
-      /*
-       * First ask the browser for the
-       * available cameras.
-       */
+      if (scanner) {
 
-      const cameras =
-        await Html5Qrcode.getCameras();
-
-
-      if (
-        !cameras ||
-        cameras.length === 0
-      ) {
-
-        throw new Error(
-          'No camera was found on this device.'
-        );
-
-      }
-
-
-      /*
-       * Prefer the back/rear camera.
-       */
-
-      let cameraId =
-        cameras[0].id;
-
-
-      for (
-        let i = 0;
-        i < cameras.length;
-        i++
-      ) {
-
-        const label =
-          cameras[i].label.toLowerCase();
-
-
-        if (
-          label.includes('back') ||
-          label.includes('rear') ||
-          label.includes('environment')
-        ) {
-
-          cameraId =
-            cameras[i].id;
-
-          break;
-
-        }
+        await scanner.clear();
 
       }
 
@@ -207,7 +312,9 @@
 
       await scanner.start(
 
-        cameraId,
+        {
+          facingMode: 'environment'
+        },
 
         {
 
@@ -216,16 +323,16 @@
           qrbox: {
             width: 250,
             height: 250
-          },
-
-          aspectRatio: 1.0
+          }
 
         },
 
         function(decodedText) {
 
           if (scanned) {
+
             return;
+
           }
 
           scanned = true;
@@ -239,8 +346,7 @@
         function(errorMessage) {
 
           /*
-           * Ignore normal QR scanning
-           * errors while searching.
+           * Ignore normal scanning errors.
            */
 
         }
@@ -252,176 +358,222 @@
         'Camera ready. Scan the student QR code.'
       );
 
-    }
-
-    catch (error) {
-
-      console.error(
-        'Camera error:',
-        error
-      );
-
-
-      let errorText =
-        'Unable to start camera.';
-
-
-      if (error.name) {
-
-        errorText +=
-          '<br><br>[' +
-          error.name +
-          ']';
-
-      }
-
-
-      if (error.message) {
-
-        errorText +=
-          '<br>' +
-          error.message;
-
-      }
-
-
-      showMessage(
-        errorText,
-        'error'
-      );
-
-
-      document
-        .getElementById(
-          'backButton'
-        )
-        .style.display =
-          'block';
-
-    }
-
-  }
-
-
-  async function handleScan(
-    decodedText
-  ) {
-
-    const studentID =
-      decodedText.trim();
-
-
-    if (!studentID) {
-
-      scanned = false;
-
       return;
 
     }
 
 
-    showMessage(
-      '✓ Student ID detected: ' +
-      studentID +
-      '<br><br>Returning to library form...',
-      'success'
-    );
-
-
-    if (!returnUrl) {
-
-      showMessage(
-        'Student ID detected: ' +
-        studentID +
-        '<br><br>No return address was provided.',
-        'error'
-      );
-
-      document
-        .getElementById(
-          'backButton'
-        )
-        .style.display =
-          'block';
-
-      return;
-
-    }
-
-
-    try {
-
-      if (scanner) {
-
-        await scanner.stop();
-
-      }
-
-    }
-
-    catch (error) {
+    catch (secondError) {
 
       console.log(
-        error
+        'Second camera attempt failed:',
+        secondError
       );
+
+
+      showMessage(
+
+        'Unable to start camera.' +
+
+        '<br><br>' +
+
+        '<strong>[' +
+        secondError.name +
+        ']</strong>' +
+
+        '<br>' +
+
+        (
+          secondError.message ||
+          'Could not start camera.'
+        ) +
+
+        '<br><br>' +
+
+        'Please close other apps or browser tabs using the camera, then reload this page.',
+
+        'error'
+
+      );
+
+
+      document
+        .getElementById(
+          'backButton'
+        )
+        .style.display =
+          'block';
 
     }
 
+  }
 
-    const destination =
-      returnUrl +
-      '?studentId=' +
-      encodeURIComponent(
-        studentID
-      );
+}
 
 
-    setTimeout(
-      function() {
+/* =====================================
+   HANDLE QR RESULT
+   ===================================== */
 
-        window.location.href =
-          destination;
+async function handleScan(
+  decodedText
+) {
 
-      },
-      700
-    );
+  const studentID =
+    decodedText.trim();
+
+
+  if (!studentID) {
+
+    scanned = false;
+
+    return;
 
   }
 
 
-  function goBack() {
+  showMessage(
 
-    if (returnUrl) {
+    '✓ Student ID detected: ' +
+    studentID +
 
-      window.location.href =
-        returnUrl;
+    '<br><br>' +
 
-    }
+    'Returning to library form...',
 
-    else {
+    'success'
 
-      window.history.back();
+  );
 
-    }
+
+  /*
+   * If scanner was opened directly,
+   * there won't be a return URL.
+   */
+
+  if (!returnUrl) {
+
+    showMessage(
+
+      'Student ID detected: ' +
+      studentID +
+
+      '<br><br>' +
+
+      'No return address was provided.',
+
+      'error'
+
+    );
+
+
+    document
+      .getElementById(
+        'backButton'
+      )
+      .style.display =
+        'block';
+
+
+    return;
 
   }
 
 
   /*
-   * Start camera after the page
-   * has completely loaded.
+   * Stop camera before leaving.
    */
 
-  window.addEventListener(
-    'load',
-    function() {
+  try {
 
-      startCamera();
+    if (scanner) {
+
+      await scanner.stop();
 
     }
+
+  }
+
+  catch (error) {
+
+    console.log(
+      error
+    );
+
+  }
+
+
+  /*
+   * Send ID back to Google Apps Script.
+   */
+
+  const destination =
+
+    returnUrl +
+
+    '?studentId=' +
+
+    encodeURIComponent(
+      studentID
+    );
+
+
+  setTimeout(
+
+    function() {
+
+      window.location.href =
+        destination;
+
+    },
+
+    700
+
   );
 
+}
+
+
+/* =====================================
+   BACK BUTTON
+   ===================================== */
+
+function goBack() {
+
+  if (returnUrl) {
+
+    window.location.href =
+      returnUrl;
+
+  }
+
+  else {
+
+    window.history.back();
+
+  }
+
+}
+
+
+/* =====================================
+   START AFTER PAGE LOAD
+   ===================================== */
+
+window.addEventListener(
+
+  'load',
+
+  function() {
+
+    startCamera();
+
+  }
+
+);
+
 </script>
+
 
 </body>
 
